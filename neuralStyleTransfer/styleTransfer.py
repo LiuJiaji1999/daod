@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from PIL import Image
 import torchvision.transforms as transforms
 from torchvision.models import vgg19, VGG19_Weights
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def gram_matrix(input):
     a, b, c, d = input.size()  # a=batch size(=1)
@@ -78,14 +79,14 @@ def image_loader(image_name):
     return image.to(torch.float)
     
 
-def get_style_and_content_losses(args, style_img, content_img):
+def get_style_and_content_losses(style_img, content_img):
     normalization_mean = torch.tensor([0.485, 0.456, 0.406])
     normalization_std = torch.tensor([0.229, 0.224, 0.225])
     style_layers_default = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
     content_layers_default = ['conv_4']
 
     cnn = vgg19(weights=VGG19_Weights.DEFAULT).features.eval()
-    normalization = Normalization(normalization_mean, normalization_std, args.device)
+    normalization = Normalization(normalization_mean, normalization_std, device)
     
     # just in order to have an iterable access to or list of content/style
     # losses
@@ -96,7 +97,7 @@ def get_style_and_content_losses(args, style_img, content_img):
     ####
     # assuming that ``cnn`` is a ``nn.Sequential``, so we make a new ``nn.Sequential``
     # to put in modules that are supposed to be activated sequentially
-    model = nn.Sequential(normalization).to(args.device)
+    model = nn.Sequential(normalization).to(device)
     i = 0  # increment every time we see a conv
     for layer in cnn.children():
         if isinstance(layer, nn.Conv2d):
@@ -115,7 +116,7 @@ def get_style_and_content_losses(args, style_img, content_img):
         else:
             raise RuntimeError('Unrecognized layer: {}'.format(layer.__class__.__name__))
 
-        model.add_module(name, layer.to(args.device))
+        model.add_module(name, layer.to(device))
         if name in style_layers_default:
             # add style loss:
             target_feature = model(style_img).detach()
@@ -134,5 +135,7 @@ def get_style_and_content_losses(args, style_img, content_img):
         if isinstance(model[i], ContentLoss) or isinstance(model[i], StyleLoss):
             break
 
-    model = model[:(i + 1)].to(args.device)
+    model = model[:(i + 1)].to(device)
     return model, style_losses, content_losses
+
+get_style_and_content_losses('/home/lenovo/data/liujiaji/daod/neuralStyleTransfer/style.png','/home/lenovo/data/liujiaji/daod/neuralStyleTransfer/content.png')
